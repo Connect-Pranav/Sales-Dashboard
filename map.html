@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Bommasandara — Territory Map</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:'Nunito',sans-serif;overflow:hidden}
+
+:root{
+  --p1:#819dcc;--p2:#95b7d0;--p3:#b8e1d3;--p4:#d6eadf;--p5:#eac3d5;
+  --p1l:#eef2fa;--p2l:#ecf3f8;--p3l:#edf8f5;--p4l:#f2f8f5;--p5l:#fbf0f5;
+  --bg:#f0f4f8;--sb:#e4eaf6;--card:#fff;
+  --t1:#1a1a2e;--t2:#4a5568;--t3:#8892a4;
+  --bdr:rgba(0,0,0,0.08);
+  --green:#1a9e5c;--red:#e53e3e;--amber:#d97706;--gold:#f8c04f;
+  --r:12px;--sh:0 2px 10px rgba(0,0,0,0.07);
+}
+
+body{background:var(--bg)}
+.app{display:flex;flex-direction:column;height:100vh}
+
+/* HEADER */
+.hdr{
+  background:linear-gradient(135deg,var(--p1),var(--p2));
+  padding:12px 20px;
+  display:flex;align-items:center;justify-content:space-between;
+  flex-shrink:0;box-shadow:0 3px 12px rgba(129,157,204,0.3);
+}
+.hdr-left{display:flex;align-items:center;gap:12px}
+.hdr-icon{font-size:26px}
+.hdr-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:#fff}
+.hdr-sub{font-size:11px;color:rgba(255,255,255,0.75);margin-top:1px}
+.hdr-sub a{color:rgba(255,255,255,0.85);text-decoration:none;font-weight:700}
+.hdr-sub a:hover{color:#fff}
+.hdr-stats{display:flex;gap:20px}
+.hstat{text-align:center}
+.hstat-val{font-family:'Syne',sans-serif;font-size:18px;font-weight:900;color:#fff}
+.hstat-lbl{font-size:9px;color:rgba(255,255,255,0.7);letter-spacing:.8px;text-transform:uppercase}
+
+/* BODY */
+.body{display:flex;flex:1;min-height:0}
+
+/* LEFT PANEL */
+.left{
+  width:260px;flex-shrink:0;
+  background:var(--sb);
+  border-right:1px solid var(--bdr);
+  display:flex;flex-direction:column;
+  overflow:hidden;
+}
+.lhdr{
+  padding:12px 14px 8px;
+  font-size:10px;font-weight:800;color:var(--t3);
+  letter-spacing:1px;text-transform:uppercase;
+  border-bottom:1px solid var(--bdr);flex-shrink:0;
+}
+.area-list{overflow-y:auto;flex:1}
+.area-item{
+  padding:10px 14px;border-bottom:1px solid var(--bdr);
+  cursor:pointer;transition:.15s;
+}
+.area-item:hover{background:var(--p1l)}
+.area-item.active{background:var(--p1l);border-left:3px solid var(--p1)}
+.ai-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.ai-name{font-size:13px;font-weight:800;color:var(--t1)}
+.ai-pin{font-size:10px;font-weight:700;color:var(--p1)}
+.ai-bar-row{display:flex;align-items:center;gap:6px;margin-bottom:3px}
+.ai-bar-lbl{font-size:9px;color:var(--t3);width:26px;flex-shrink:0}
+.ai-bar-bg{flex:1;height:4px;background:rgba(0,0,0,0.07);border-radius:2px}
+.ai-bar-fill{height:100%;border-radius:2px}
+.ai-bar-val{font-size:9px;font-weight:700;color:var(--t1);width:36px;text-align:right;flex-shrink:0}
+
+/* MAP */
+.map-wrap{flex:1;display:flex;flex-direction:column;position:relative}
+#map{flex:1}
+
+/* CONTROLS */
+.map-controls{
+  position:absolute;top:12px;right:12px;z-index:1000;
+  display:flex;flex-direction:column;gap:6px;
+}
+.ctrl-btn{
+  background:var(--card);border:1.5px solid var(--bdr);
+  border-radius:8px;padding:7px 14px;
+  font-family:'Nunito',sans-serif;font-size:11px;font-weight:700;
+  color:var(--t2);cursor:pointer;box-shadow:var(--sh);transition:.2s;
+}
+.ctrl-btn:hover{border-color:var(--p1);color:var(--p1)}
+.ctrl-btn.act{background:var(--p1);border-color:var(--p1);color:#fff;box-shadow:0 2px 8px rgba(129,157,204,0.4)}
+
+/* LEGEND */
+.legend{
+  position:absolute;bottom:20px;left:270px;z-index:1000;
+  background:var(--card);border:1px solid var(--bdr);
+  border-radius:10px;padding:12px 14px;box-shadow:var(--sh);
+}
+.leg-title{font-size:10px;font-weight:800;color:var(--t3);letter-spacing:.8px;text-transform:uppercase;margin-bottom:8px}
+.leg-row{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--t2);margin-bottom:4px}
+.leg-circle{border-radius:50%;flex-shrink:0;opacity:.85}
+
+/* RIGHT DETAIL */
+.detail{
+  width:300px;flex-shrink:0;
+  background:var(--card);border-left:1px solid var(--bdr);
+  display:flex;flex-direction:column;overflow-y:auto;
+}
+.dp-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--t3);font-size:13px;text-align:center;padding:40px}
+.dp-empty-icon{font-size:44px;margin-bottom:12px;opacity:.4}
+.dp-hdr{background:linear-gradient(135deg,var(--p1),var(--p2));padding:16px}
+.dp-name{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;color:#fff}
+.dp-pin{font-size:11px;color:rgba(255,255,255,0.75);margin-top:2px}
+.dp-body{padding:14px;display:flex;flex-direction:column;gap:12px}
+.dp-kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.dp-kpi{background:var(--p1l);border:1px solid rgba(129,157,204,.2);border-radius:10px;padding:10px;text-align:center}
+.dp-kpi.g2{background:var(--p3l);border-color:rgba(184,225,211,.3)}
+.dp-kpi.g3{background:var(--p5l);border-color:rgba(234,195,213,.3)}
+.dp-kpi.g4{background:var(--p4l);border-color:rgba(214,234,223,.3)}
+.dp-kv{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--p1)}
+.dp-kpi.g2 .dp-kv{color:#5aaa8a}.dp-kpi.g3 .dp-kv{color:#c882a0}.dp-kpi.g4 .dp-kv{color:#7aaa7a}
+.dp-kl{font-size:9px;color:var(--t3);letter-spacing:.4px;text-transform:uppercase;margin-top:2px}
+.dp-sec{font-size:10px;font-weight:800;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px}
+.dp-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--bdr);font-size:12px}
+.dp-row:last-child{border-bottom:none}
+.dp-row span{color:var(--t2)}.dp-row b{font-weight:800;color:var(--t1)}
+.dp-bar-row{margin-bottom:8px}
+.dp-bar-lbl{display:flex;justify-content:space-between;font-size:11px;color:var(--t2);margin-bottom:3px}
+.dp-bar-bg{height:6px;background:rgba(0,0,0,0.07);border-radius:3px;overflow:hidden}
+.dp-bar-fill{height:100%;border-radius:3px}
+.donut-wrap{height:140px;position:relative;margin-top:4px}
+
+/* LEAFLET */
+.leaflet-container{background:#e8ecf0!important}
+.lpop .leaflet-popup-content-wrapper{background:#fff;border:1.5px solid var(--p1);border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.12);padding:0}
+.lpop .leaflet-popup-tip{background:#fff}
+.lpop .leaflet-popup-content{margin:0;width:220px!important}
+.pin{padding:12px}
+.pn{font-family:'Syne',sans-serif;font-size:13px;font-weight:800;color:var(--t1);margin-bottom:2px}
+.ppc{font-size:9px;color:var(--t3);margin-bottom:8px}
+.pgrid{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:6px}
+.pi{background:var(--p1l);border-radius:6px;padding:5px 7px;text-align:center}
+.pv{font-size:14px;font-weight:900;color:var(--p1)}.pl{font-size:8px;color:var(--t3);text-transform:uppercase;margin-top:1px}
+.pfoot{font-size:9px;color:var(--t2);text-align:center;padding:4px;background:var(--p4l);border-radius:6px}
+
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:rgba(129,157,204,.35);border-radius:2px}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- HEADER -->
+  <div class="hdr">
+    <div class="hdr-left">
+      <div class="hdr-icon">📍</div>
+      <div>
+        <div class="hdr-title">Bommasandara — Territory Map</div>
+        <div class="hdr-sub">Bangalore · Karnataka/Bommasandra · <a href="index.html">← Back to Dashboard</a></div>
+      </div>
+    </div>
+    <div class="hdr-stats">
+      <div class="hstat"><div class="hstat-val" id="h-areas">13</div><div class="hstat-lbl">Areas</div></div>
+      <div class="hstat"><div class="hstat-val" id="h-total">31,513</div><div class="hstat-lbl">Total Data</div></div>
+      <div class="hstat"><div class="hstat-val" id="h-paid">1,006</div><div class="hstat-lbl">Paid Sellers</div></div>
+      <div class="hstat"><div class="hstat-val" id="h-conv">1.05%</div><div class="hstat-lbl">Avg Conv%</div></div>
+    </div>
+  </div>
+
+  <!-- BODY -->
+  <div class="body">
+    <!-- LEFT AREA LIST -->
+    <div class="left">
+      <div class="lhdr">📌 All Areas</div>
+      <div class="area-list" id="areaList"></div>
+    </div>
+
+    <!-- MAP -->
+    <div class="map-wrap">
+      <div id="map"></div>
+      <div class="map-controls">
+        <button class="ctrl-btn act" id="btn-td" onclick="setView('data',this)">📊 Total Data</button>
+        <button class="ctrl-btn" id="btn-ps" onclick="setView('paid',this)">💰 Paid Sellers</button>
+        <button class="ctrl-btn" id="btn-cv" onclick="setView('conv',this)">📈 Conv%</button>
+        <button class="ctrl-btn" id="btn-gst" onclick="setView('gst',this)">✅ GST Active</button>
+      </div>
+      <div class="legend">
+        <div class="leg-title">Bubble Size</div>
+        <div class="leg-row"><div class="leg-circle" style="width:28px;height:28px;background:var(--p1)"></div>High Volume</div>
+        <div class="leg-row"><div class="leg-circle" style="width:18px;height:18px;background:var(--p1)"></div>Medium</div>
+        <div class="leg-row"><div class="leg-circle" style="width:10px;height:10px;background:var(--p1)"></div>Low</div>
+      </div>
+    </div>
+
+    <!-- RIGHT DETAIL -->
+    <div class="detail" id="detailPanel">
+      <div class="dp-empty">
+        <div class="dp-empty-icon">📍</div>
+        <div>Click any pin or area<br>to see detailed stats</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+var PC = ["#819dcc","#95b7d0","#b8e1d3","#d6eadf","#eac3d5","#a8c8e8","#c8e8d8","#e8c8d8","#b8d4e8","#d8e8c8","#e8d8b8","#c8b8e8","#b8e8c8"];
+var AREAS = [
+  {p:560076,n:"Bannerghatta Road",lat:12.8729,lng:77.5972,td:7093,ps:193,ga:5040,s6:52,cv:0.73,mp:6.01,mf:388,wh:427,sv:2657,rt:1014},
+  {p:560081,n:"Chandapura",lat:12.8161,lng:77.6701,td:163,ps:7,ga:125,s6:2,cv:1.23,mp:12.27,mf:12,wh:13,sv:53,rt:34},
+  {p:560083,n:"Bannerghatta",lat:12.8616,lng:77.5752,td:2185,ps:105,ga:1660,s6:34,cv:1.56,mp:8.6,mf:243,wh:190,sv:666,rt:400},
+  {p:560099,n:"Bommasandra",lat:12.8144,lng:77.681,td:3815,ps:169,ga:2929,s6:66,cv:1.73,mp:16.17,mf:692,wh:208,sv:1114,rt:607},
+  {p:560100,n:"Electronics City",lat:12.8399,lng:77.6769,td:5438,ps:139,ga:3648,s6:42,cv:0.77,mp:9.29,mf:388,wh:300,sv:1806,rt:808},
+  {p:560102,n:"HSR Layout",lat:12.9116,lng:77.6389,td:4890,ps:89,ga:3739,s6:31,cv:0.63,mp:3.11,mf:142,wh:190,sv:2638,rt:477},
+  {p:560105,n:"Anekal taluk",lat:12.7908,lng:77.6962,td:2191,ps:117,ga:1722,s6:41,cv:1.87,mp:13.74,mf:342,wh:153,sv:583,rt:440},
+  {p:560108,n:"Anjanapura",lat:12.8465,lng:77.5526,td:135,ps:9,ga:104,s6:1,cv:0.74,mp:9.63,mf:20,wh:9,sv:41,rt:24},
+  {p:561229,n:"Ramanagra",lat:12.7167,lng:77.2833,td:20,ps:0,ga:9,s6:0,cv:0.0,mp:5.0,mf:2,wh:0,sv:3,rt:1},
+  {p:562106,n:"Anekal taluk II",lat:12.7762,lng:77.7201,td:1620,ps:51,ga:1327,s6:20,cv:1.23,mp:12.04,mf:267,wh:141,sv:396,rt:364},
+  {p:562107,n:"Attible",lat:12.8074,lng:77.7563,td:1610,ps:57,ga:1283,s6:17,cv:1.06,mp:11.37,mf:200,wh:133,sv:429,rt:337},
+  {p:562112,n:"Harohalli",lat:12.7108,lng:77.5558,td:591,ps:10,ga:513,s6:3,cv:0.51,mp:5.41,mf:113,wh:47,sv:189,rt:140},
+  {p:562125,n:"Sarjapura",lat:12.8876,lng:77.7862,td:1762,ps:60,ga:1363,s6:27,cv:1.53,mp:11.24,mf:140,wh:108,sv:549,rt:413}
+];
+
+var MAP=null, CIRCLES=[], LABELS=[], CURVIEW='data', SEL=-1;
+
+function getV(a){if(CURVIEW==='data')return a.td;if(CURVIEW==='paid')return a.ps;if(CURVIEW==='conv')return a.cv*100;return a.ga;}
+function getVL(a){if(CURVIEW==='data')return a.td.toLocaleString();if(CURVIEW==='paid')return a.ps;if(CURVIEW==='conv')return a.cv+'%';return a.ga.toLocaleString();}
+
+window.onload=function(){
+  buildAreaList();
+  MAP=L.map('map',{center:[12.83,77.62],zoom:10,zoomControl:true,attributionControl:false});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:19}).addTo(MAP);
+  drawCircles();
+};
+
+function buildAreaList(){
+  var maxTD=Math.max.apply(null,AREAS.map(function(a){return a.td;}));
+  var maxPS=Math.max.apply(null,AREAS.map(function(a){return a.ps;}));
+  var html=AREAS.map(function(a,i){
+    return '<div class="area-item" id="ai-'+i+'" onclick="selectArea('+i+')">'
+      +'<div class="ai-top"><div class="ai-name">'+a.n+'</div><div class="ai-pin">'+a.p+'</div></div>'
+      +'<div class="ai-bar-row"><div class="ai-bar-lbl">Data</div><div class="ai-bar-bg"><div class="ai-bar-fill" style="width:'+(a.td/maxTD*100).toFixed(0)+'%;background:'+PC[i%PC.length]+'"></div></div><div class="ai-bar-val">'+a.td.toLocaleString()+'</div></div>'
+      +'<div class="ai-bar-row"><div class="ai-bar-lbl">Paid</div><div class="ai-bar-bg"><div class="ai-bar-fill" style="width:'+(a.ps/maxPS*100).toFixed(0)+'%;background:#eac3d5"></div></div><div class="ai-bar-val">'+a.ps+'</div></div>'
+      +'</div>';
+  }).join('');
+  document.getElementById('areaList').innerHTML=html;
+}
+
+function drawCircles(){
+  CIRCLES.forEach(function(c){MAP.removeLayer(c);});
+  LABELS.forEach(function(l){MAP.removeLayer(l);});
+  CIRCLES=[];LABELS=[];
+  var vals=AREAS.map(function(a){return getV(a);}),maxV=Math.max.apply(null,vals);
+  AREAS.forEach(function(a,i){
+    var v=vals[i],radius=9+(v/maxV)*38,color=PC[i%PC.length];
+    var circle=L.circleMarker([a.lat,a.lng],{radius:radius,fillColor:color,color:'rgba(255,255,255,0.8)',weight:v>maxV*0.4?2.5:1.5,opacity:1,fillOpacity:v>maxV*0.4?0.85:0.65}).addTo(MAP);
+    (function(area,idx){
+      circle.on('click',function(){selectArea(idx);});
+      circle.bindTooltip('<b style="font-size:12px;color:#1a1a2e">'+area.n+'</b><br><span style="font-size:11px;color:#4a5568">'+getVL(area)+'</span>',{direction:'top',offset:[0,-radius]});
+    })(a,i);
+    var lbl=L.divIcon({className:'',html:'<div style="background:'+color+';color:#1a1a2e;font-size:9px;font-weight:900;font-family:Nunito,sans-serif;padding:2px 5px;border-radius:4px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.15)">'+a.n+'</div>',iconAnchor:[-(radius+2),8]});
+    LABELS.push(L.marker([a.lat,a.lng],{icon:lbl,interactive:false}).addTo(MAP));
+    CIRCLES.push(circle);
+  });
+}
+
+function selectArea(idx){
+  SEL=idx;
+  document.querySelectorAll('.area-item').forEach(function(el){el.classList.remove('active');});
+  var ai=document.getElementById('ai-'+idx);
+  if(ai){ai.classList.add('active');ai.scrollIntoView({behavior:'smooth',block:'nearest'});}
+  MAP.flyTo([AREAS[idx].lat,AREAS[idx].lng],13,{duration:1});
+  renderDetail(idx);
+}
+
+function renderDetail(idx){
+  var a=AREAS[idx],color=PC[idx%PC.length];
+  var maxTD=Math.max.apply(null,AREAS.map(function(x){return x.td;}));
+  document.getElementById('detailPanel').innerHTML=
+    '<div class="dp-hdr" style="background:linear-gradient(135deg,'+color+','+color+'cc)">'
+    +'<div class="dp-name">'+a.n+'</div>'
+    +'<div class="dp-pin">📮 Pincode: '+a.p+'</div>'
+    +'</div>'
+    +'<div class="dp-body">'
+    +'<div class="dp-kpi-grid">'
+    +'<div class="dp-kpi"><div class="dp-kv">'+a.td.toLocaleString()+'</div><div class="dp-kl">Total Data</div></div>'
+    +'<div class="dp-kpi g2"><div class="dp-kv">'+a.ps+'</div><div class="dp-kl">Paid Sellers</div></div>'
+    +'<div class="dp-kpi g3"><div class="dp-kv">'+a.ga.toLocaleString()+'</div><div class="dp-kl">GST Active</div></div>'
+    +'<div class="dp-kpi g4"><div class="dp-kv">'+a.cv+'%</div><div class="dp-kl">Conv%</div></div>'
+    +'</div>'
+    +'<div>'
+    +'<div class="dp-sec">Data Breakdown</div>'
+    +[{l:'Manufacturer',v:a.mf,c:color},{l:'Wholesaler',v:a.wh,c:'#95b7d0'},{l:'Service',v:a.sv,c:'#b8e1d3'},{l:'Retailer',v:a.rt,c:'#eac3d5'}].map(function(r){
+      return '<div class="dp-bar-row">'
+        +'<div class="dp-bar-lbl"><div style="display:flex;justify-content:space-between"><span>'+r.l+'</span><span>'+r.v.toLocaleString()+'</span></div></div>'
+        +'<div class="dp-bar-bg"><div class="dp-bar-fill" style="width:'+(r.v/a.td*100).toFixed(0)+'%;background:'+r.c+'"></div></div>'
+        +'</div>';
+    }).join('')
+    +'</div>'
+    +'<div>'
+    +'<div class="dp-sec">Performance</div>'
+    +'<div class="dp-row"><span>Sales in 6M</span><b>'+a.s6+'</b></div>'
+    +'<div class="dp-row"><span>Meeting %</span><b style="color:'+(a.mp>=10?'#1a9e5c':'#d97706')+'">'+a.mp+'%</b></div>'
+    +'<div class="dp-row"><span>Conv %</span><b style="color:'+(a.cv>=1.5?'#1a9e5c':'#d97706')+'">'+a.cv+'%</b></div>'
+    +'<div class="dp-row"><span>GST Active</span><b>'+a.ga.toLocaleString()+'</b></div>'
+    +'</div>'
+    +'</div>';
+}
+
+function setView(v,btn){
+  CURVIEW=v;
+  document.querySelectorAll('.ctrl-btn').forEach(function(b){b.classList.remove('act');});
+  btn.classList.add('act');
+  drawCircles();
+}
+</script>
+</body>
+</html>
