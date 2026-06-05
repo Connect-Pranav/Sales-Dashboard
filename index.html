@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Bommasandara Performance Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+<div class="shell">
+
+  <!-- SIDEBAR — keep as is (pastel) -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="lion-wrap" onclick="document.getElementById('logoUp').click()" title="Upload logo">
+        <img id="lionImg" src="" style="display:none"/>
+        <div id="lionFb">🦁<span class="edb">✏</span></div>
+      </div>
+      <input type="file" id="logoUp" accept="image/*" style="display:none" onchange="uploadLogo(event)"/>
+      <div class="bname">BOMMASANDARA<br>PERFORMANCE</div>
+      <div class="bsub">IndiaMART · Bengaluru</div>
+    </div>
+    <nav>
+      <a class="ni active" onclick="navTo('dashboard',this)"><span class="ii">⊞</span><span>Dashboard</span></a>
+      <a class="ni" onclick="navTo('managers',this)"><span class="ii">👤</span><span>Managers</span></a>
+      <a class="ni" onclick="navTo('leaderboard',this)"><span class="ii">🏆</span><span>Leaderboard</span></a>
+      <a class="ni" onclick="navTo('zreport',this)"><span class="ii">⚠</span><span>Z-Report</span></a>
+      <a class="ni" onclick="navTo('heatmap',this)"><span class="ii">📅</span><span>Heatmap</span></a>
+      <a class="ni" onclick="navTo('recovery',this)"><span class="ii">🌟</span><span>Recovery</span></a>
+      <a class="ni" href="map.html" target="_blank"><span class="ii">🗺</span><span>Blr Map</span></a>
+    </nav>
+    <div class="sb-bot"><a class="ni" onclick="loadData()"><span class="ii">↺</span><span>Refresh</span></a></div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div class="tl">
+        <span class="ttl" id="pageTitle">Dashboard</span>
+        <div class="sbox"><span>🔍</span><input placeholder="Search..." id="searchInput"/></div>
+      </div>
+      <div class="tr">
+        <span class="sdot"></span>
+        <span class="slbl" id="syncLbl">—</span>
+        <div class="mpill">June 2026 ▾</div>
+        <div class="ibtn">🔔</div><div class="ibtn">✉</div><div class="ibtn">👤</div>
+      </div>
+    </div>
+
+    <!-- ══ DASHBOARD ══ -->
+    <div class="page active" id="pg-dashboard">
+
+      <!-- ROW 1: 3 KPIs + Manager Stats -->
+      <div class="r1">
+        <div class="kpi p1">
+          <div class="klbl c1">TOTAL EXECUTIVES</div>
+          <div class="knum" id="k-team">—</div>
+          <div class="ksub" id="k-team-s">—</div>
+        </div>
+        <div class="kpi p2">
+          <div class="klbl c2">JUN ACHIEVEMENT</div>
+          <div class="knum" id="k-ach">—</div>
+          <div class="ksub" id="k-ach-s">—</div>
+        </div>
+        <div class="kpi p5">
+          <div class="klbl c5">Z REPORT</div>
+          <div class="knum" id="k-z">—</div>
+          <div class="ksub" id="k-z-s">—</div>
+        </div>
+        <div class="card mgr-card">
+          <div class="clbl">MANAGER STATS</div>
+          <div id="mgrStats"></div>
+        </div>
+      </div>
+
+      <!-- ROW 2: Map | Donuts (stacked) | Exe Perf -->
+      <div class="r2">
+
+        <!-- BLR MAP — big left -->
+        <div class="card map-card">
+          <div class="mh">
+            <div class="clbl" style="margin:0">BANGALORE TERRITORY MAP</div>
+            <div class="mbtns">
+              <button class="mb act" onclick="setV('data',this)">📊 Data</button>
+              <button class="mb" onclick="setV('paid',this)">💰 Paid</button>
+              <button class="mb" onclick="setV('conv',this)">📈 Conv%</button>
+            </div>
+          </div>
+          <div id="dashMap"></div>
+        </div>
+
+        <!-- MIDDLE: 3 donuts stacked -->
+        <div class="donut-col">
+          <div class="dcard p1">
+            <div class="dlbl c1">DATA</div>
+            <div class="dw"><canvas id="d1" width="80" height="80"></canvas><div class="dv" id="dv1">—</div></div>
+            <div class="dsub" id="ds1">Total listings</div>
+          </div>
+          <div class="dcard p3">
+            <div class="dlbl c3">PAID SELLERS</div>
+            <div class="dw"><canvas id="d2" width="80" height="80"></canvas><div class="dv" id="dv2">—</div></div>
+            <div class="dsub" id="ds2">Paid vs total</div>
+          </div>
+          <div class="dcard p5">
+            <div class="dlbl c5">CONV%</div>
+            <div class="dw"><canvas id="d3" width="80" height="80"></canvas><div class="dv" id="dv3">—</div></div>
+            <div class="dsub" id="ds3">Avg conversion</div>
+          </div>
+        </div>
+
+        <!-- RIGHT: Executive Performance — tall -->
+        <div class="card exe-card">
+          <div class="clbl">EXECUTIVE PERFORMANCE</div>
+          <div class="exe-scroll">
+            <table class="etbl">
+              <thead><tr><th>#</th><th>Executive</th><th>Mgr</th><th>Ach/Tgt</th><th>%</th><th>Z</th></tr></thead>
+              <tbody id="execBody"><tr><td colspan="6" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- MANAGERS -->
+    <div class="page" id="pg-managers">
+      <div class="ptitle">👤 Manager Performance</div>
+      <div class="mgrid" id="mgrGrid"></div>
+    </div>
+
+    <!-- LEADERBOARD -->
+    <div class="page" id="pg-leaderboard">
+      <div class="ptitle">🏆 Leaderboard</div>
+      <div class="tblwrap"><table class="dtbl"><thead><tr><th>#</th><th>Employee</th><th>Manager</th><th>Target</th><th>Achieved</th><th>Jun%</th><th>Streak</th><th>Score</th><th>Trend</th><th>Risk</th></tr></thead><tbody id="lbBody"></tbody></table></div>
+    </div>
+
+    <!-- Z REPORT -->
+    <div class="page" id="pg-zreport">
+      <div class="ptitle">⚠ Z-Escalation Report</div>
+      <div class="zgrid" id="zcGrid"></div>
+    </div>
+
+    <!-- HEATMAP -->
+    <div class="page" id="pg-heatmap">
+      <div class="ptitle">📅 Weekly Heatmap</div>
+      <div class="hmwrap" id="hmWrap"></div>
+    </div>
+
+    <!-- RECOVERY -->
+    <div class="page" id="pg-recovery">
+      <div class="ptitle">🌟 Recovery Champions</div>
+      <div class="cgrid" id="champGrid"></div>
+    </div>
+
+  </div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
