@@ -47,24 +47,55 @@ function uploadLogo(e) {
   var r=new FileReader();
   r.onload=function(ev){
     var u=ev.target.result;
+    // Update both possible img elements
     var img=document.getElementById('lionImg');
     if(img){img.src=u;img.style.display='block';}
     var fb=document.getElementById('lionFb');
     if(fb) fb.style.display='none';
-    try{localStorage.setItem('blogo',u);}catch(e){}
+    // Save to localStorage with try/catch for large images
+    try{
+      localStorage.setItem('blogo',u);
+      console.log('Logo saved to localStorage, size:', Math.round(u.length/1024)+'KB');
+    }catch(err){
+      // If localStorage full (>5MB), compress image first
+      console.warn('localStorage full, trying smaller quality');
+      try{
+        var canvas=document.createElement('canvas');
+        var imgEl=new Image();
+        imgEl.onload=function(){
+          canvas.width=200; canvas.height=200;
+          canvas.getContext('2d').drawImage(imgEl,0,0,200,200);
+          var small=canvas.toDataURL('image/jpeg',0.7);
+          localStorage.setItem('blogo',small);
+          if(img){img.src=small;img.style.display='block';}
+        };
+        imgEl.src=u;
+      }catch(e2){console.warn('Logo save failed:',e2);}
+    }
+    // Clear input so same file can be re-selected
+    e.target.value='';
   };
   r.readAsDataURL(f);
 }
 function loadLogo(){
   try{
     var u=localStorage.getItem('blogo');
-    if(u){
+    if(u && u.length > 10){
       var img=document.getElementById('lionImg');
-      if(img){img.src=u;img.style.display='block';}
+      if(img){
+        img.src=u;
+        img.style.display='block';
+        img.style.width='54px';
+        img.style.height='54px';
+        img.style.borderRadius='50%';
+        img.style.objectFit='cover';
+        img.style.border='2px solid #f8c04f';
+        img.style.boxShadow='0 0 16px rgba(248,192,79,0.5)';
+      }
       var fb=document.getElementById('lionFb');
       if(fb) fb.style.display='none';
     }
-  }catch(e){}
+  }catch(e){ console.warn('loadLogo error:',e); }
 }
 
 // ── NAV ───────────────────────────────────────────────────────
@@ -244,8 +275,6 @@ function renderKPIs(){
     if(lk) totalLeakage += Number(lk)||0;
   }
   var leakPct = totalLeakage; // show as absolute count, not %
-  var zeroCount = 0;
-  for(var i=0; i<EX.length; i++){ if(EX[i].jach===0) zeroCount++; }
 
   // COCA
   var paidCount = 0;
@@ -637,7 +666,7 @@ function renderHeatmap(){
     var leakCell = '<td class="hm-cell" '
       +'style="border-left:2px solid rgba(229,62,62,.2);font-weight:800;cursor:pointer;'
       +(leakVal>0?'background:rgba(229,62,62,.1);color:#e53e3e':'color:#8892a4')+'" '
-      +'onclick="openLeakCellEdit(\''+e.name+'\')" title="Click to enter cancelled sales">'
+      +'onclick="openLeakCellEdit(''+e.name+'')" title="Click to enter cancelled sales">'
       +(leakVal>0?leakVal:'—')+'</td>';
     rows+='<tr><td class="hn">'+e.name+'</td><td class="hm2">'+e.mgr+'</td>'
       +wc
@@ -688,12 +717,28 @@ function rebuildZFromOverrides(){
   var day=new Date().getDate(),mo=new Date().getMonth(),ja=0;
   if(mo>=5){if(day>=1)ja=1;if(day>=8)ja=2;if(day>=15)ja=3;if(day>=22)ja=4;}
   EX.forEach(function(e){
-    var wv=[e.mw[3]].concat(e.jw).map(function(v,wi){return getHmVal(e.name,wi,v);});
-    var zv=wv.slice(0,ja+1);
-    e.zf=calcZ(zv);
-    e.rec=calcRec(zv);
+    // Rebuild Jun weekly values from overrides
+    var newJw = e.jw.map(function(v,wi){ return getHmVal(e.name,wi+1,v); });
+    // wi+1 because wi=0 is MayW4, wi=1..4 are JunW1..W4
+    var newJach = 0;
+    for(var wi=0;wi<ja;wi++) newJach += newJw[wi];
+    e.jach = newJach;
+    e.jpct = e.jtgt>0 ? (newJach/e.jtgt)*100 : 0;
+    e.mayTotal = e.mw.reduce(function(a,b){return a+b;},0);
+    var wv=[getHmVal(e.name,0,e.mw[3])].concat(newJw.slice(0,ja));
+    e.zf=calcZ(wv);
+    e.rec=calcRec(wv);
+    e.streak=calcStreak(wv);
+    e.trend=calcTrend(wv);
+    e.risk=calcRisk(e.jpct,e.zf);
+    e.score=calcScore(e.jpct,e.rec,wv,e.streak);
   });
-  renderKPIs();renderMgrDonuts();renderExecTable();renderLeaderboard();
+  // Re-render ALL pages so everything stays in sync
+  renderKPIs();
+  renderMgrDonuts();
+  renderExecTable();
+  renderLeaderboard();
+  renderManagersPage();
 }
 
 function uploadHmCSV(event){
