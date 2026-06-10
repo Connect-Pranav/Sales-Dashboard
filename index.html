@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Bommasandara Performance Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<!-- SheetJS for Excel upload -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+<div class="shell">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="lion-wrap" onclick="document.getElementById('logoUp').click()">
+        <img id="lionImg" src="" style="display:none;width:54px;height:54px;border-radius:50%;object-fit:cover;border:2px solid #f5c842;box-shadow:0 0 16px rgba(245,200,66,0.4)"/>
+        <div id="lionFb">🦁<span class="edb">✏</span></div>
+      </div>
+      <input type="file" id="logoUp" accept="image/*" style="display:none" onchange="uploadLogo(event)" onclick="this.value=''"/>
+      <div class="bname">BOMMASANDARA<br>PERFORMANCE</div>
+      <div class="bsub">IndiaMART · Bengaluru</div>
+    </div>
+    <nav>
+      <a class="ni active" onclick="navTo('dashboard',this)"><span class="ii">⊞</span><span>Dashboard</span></a>
+      <a class="ni" onclick="navTo('managers',this)"><span class="ii">👤</span><span>Managers</span></a>
+      <a class="ni" onclick="navTo('leaderboard',this)"><span class="ii">🏆</span><span>Leaderboard</span></a>
+      <a class="ni" onclick="navTo('matrix',this)"><span class="ii">📐</span><span>Perf Matrix</span></a>
+      <a class="ni" onclick="navTo('heatmap',this)"><span class="ii">📅</span><span>Heatmap</span></a>
+      <a class="ni" onclick="navTo('summary',this)"><span class="ii">🧠</span><span>BI Summary</span></a>
+      <a class="ni" href="map.html" target="_blank"><span class="ii">🗺</span><span>Blr Map</span></a>
+    </nav>
+    <div class="sb-bot"><a class="ni" onclick="loadData()"><span class="ii">↺</span><span>Refresh</span></a></div>
+  </aside>
+
+  <div class="main">
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div class="tl">
+        <span class="ttl" id="pageTitle">Dashboard</span>
+        <div class="sbox" style="position:relative">
+          <span>🔍</span>
+          <input id="searchInput" placeholder="Search executive, manager..." oninput="doSearch(this.value)" autocomplete="off"/>
+          <div id="searchDrop" class="sdrop"></div>
+        </div>
+      </div>
+      <div class="tr">
+        <span class="sdot"></span><span class="slbl" id="syncLbl">—</span>
+        <!-- Excel Upload -->
+        <label class="xl-btn" title="Upload Excel data dump">
+          📊 Excel
+          <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadExcel(event)"/>
+        </label>
+        <div class="mdrop-wrap">
+          <button class="mpill" onclick="toggleMDrop()" id="mBtn">June 2026 ▾</button>
+          <div class="mdrop" id="mDrop">
+            <div onclick="setMonth('Apr',this)">April 2026</div>
+            <div onclick="setMonth('May',this)">May 2026</div>
+            <div class="sel" onclick="setMonth('Jun',this)">June 2026 ✓</div>
+            <div onclick="setMonth('Jul',this)">July 2026</div>
+          </div>
+        </div>
+        <div class="ibtn" title="Branch cost for COCA">
+          ₹<input id="branchCost" type="number" value="200000" oninput="calcCOCA()"
+            style="width:70px;border:none;outline:none;background:transparent;font-size:11px;font-family:Nunito,sans-serif;color:var(--t1)"/>
+        </div>
+        <div class="ibtn">🔔</div><div class="ibtn">✉</div>
+      </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="pg-dashboard">
+      <div class="row1">
+        <div class="kpi p1"><div class="klbl c1">EXECUTIVES</div><div class="knum" id="k-team">—</div><div class="ksub" id="k-ts">—</div></div>
+        <div class="kpi p2"><div class="klbl c2">JUN ACHIEVEMENT</div><div class="knum" id="k-ach">—</div><div class="ksub" id="k-as">—</div></div>
+        <div class="kpi p5 cp" onclick="openZPop()"><div class="klbl c5">Z REPORT ↗</div><div class="knum" id="k-z">—</div><div class="ksub" id="k-zs">—</div></div>
+        <div class="kpi p3"><div class="klbl c3">COCA</div><div class="knum" id="k-coca">—</div><div class="ksub" id="k-coca-s">Cost/new client</div></div>
+        <div class="kpi p4 cp" onclick="openLeakPop()"><div class="klbl c4">LEAKAGE ↗</div><div class="knum" id="k-leak">—</div><div class="ksub" id="k-lks">—</div></div>
+        <div id="mgrDonuts" class="mgr-donuts"></div>
+      </div>
+      <div class="row2">
+        <div class="card map-card">
+          <div class="mh">
+            <div class="clbl" style="margin:0">BANGALORE TERRITORY MAP</div>
+            <div class="mbtns">
+              <button class="mb act" onclick="setV('data',this)">📊 Data</button>
+              <button class="mb" onclick="setV('paid',this)">💰 Paid</button>
+              <button class="mb" onclick="setV('conv',this)">📈 Conv%</button>
+            </div>
+          </div>
+          <div id="dashMap"></div>
+        </div>
+        <div class="donut-col">
+          <div class="dcard dp1"><div class="dlbl dc1">DATA</div><div class="dw"><canvas id="d1" width="76" height="76"></canvas><div class="dv" id="dv1">—</div></div><div class="dsub" id="ds1">—</div></div>
+          <div class="dcard dp3"><div class="dlbl dc3">PAID</div><div class="dw"><canvas id="d2" width="76" height="76"></canvas><div class="dv" id="dv2">—</div></div><div class="dsub" id="ds2">—</div></div>
+          <div class="dcard dp5"><div class="dlbl dc5">CONV%</div><div class="dw"><canvas id="d3" width="76" height="76"></canvas><div class="dv" id="dv3">—</div></div><div class="dsub" id="ds3">—</div></div>
+        </div>
+        <div class="card exe-card">
+          <div class="clbl">EXECUTIVE PERFORMANCE</div>
+          <div class="exe-scroll">
+            <table class="etbl">
+              <thead><tr><th>#</th><th>Executive</th><th>Mgr</th><th>Ach/Tgt</th><th>%</th><th>Z</th></tr></thead>
+              <tbody id="execBody"><tr><td colspan="6" class="lding">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MANAGERS -->
+    <div class="page" id="pg-managers">
+      <div class="ptitle">👤 Manager Performance <span style="font-size:12px;font-weight:400;color:var(--t3)">— click manager name to see team</span></div>
+      <div class="mgrid" id="mgrGrid"></div>
+    </div>
+
+    <!-- LEADERBOARD -->
+    <div class="page" id="pg-leaderboard">
+      <div class="ptitle">🏆 Leaderboard</div>
+      <div class="tblwrap">
+        <table class="dtbl">
+          <thead><tr><th>#</th><th>Executive</th><th>Manager</th><th>Target</th><th>Achieved</th><th>Ach%</th><th>Z Status</th><th>Last Month Sale</th><th>Recovery</th></tr></thead>
+          <tbody id="lbBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PERFORMANCE MATRIX -->
+    <div class="page" id="pg-matrix">
+      <div class="ptitle">📐 Performance Matrix</div>
+      <div class="pm-grid" id="pmGrid"></div>
+    </div>
+
+    <!-- HEATMAP -->
+    <div class="page" id="pg-heatmap">
+      <div class="hm-top-bar">
+        <div class="ptitle" style="margin:0">📅 Weekly Heatmap</div>
+        <div class="hm-actions">
+          <span class="as-dot" id="asDot"></span><span class="as-lbl" id="asLbl">Auto-save on</span>
+          <label class="hm-btn">📤 Upload CSV <input type="file" accept=".csv" style="display:none" onchange="uploadHmCSV(event)"/></label>
+          <button class="hm-btn" onclick="exportHmCSV()">⬇ Export CSV</button>
+          <span style="font-size:10px;color:var(--t3)">★ = Recovery auto-detected</span>
+        </div>
+      </div>
+      <div class="hmwrap" id="hmWrap"></div>
+    </div>
+
+    <!-- BI SUMMARY -->
+    <div class="page" id="pg-summary">
+      <div class="ptitle">🧠 Business Intelligence — CEO Dashboard</div>
+      <div id="biWrap"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Z POPUP -->
+<div id="zPop" class="overlay" onclick="bgClose(event,'zPop')">
+  <div class="popbox">
+    <div class="pophdr"><span>⚠ Z-Report — Escalations</span><button onclick="closePop('zPop')">✕</button></div>
+    <div id="zPopBody" class="pop-scroll"></div>
+  </div>
+</div>
+
+<!-- MANAGER TEAM POPUP -->
+<div id="mgrPop" class="overlay" onclick="bgClose(event,'mgrPop')">
+  <div class="popbox popwide">
+    <div class="pophdr"><span id="mgrPopTitle">Team</span><button onclick="closePop('mgrPop')">✕</button></div>
+    <div id="mgrPopBody" class="pop-scroll"></div>
+  </div>
+</div>
+
+<!-- LEAKAGE POPUP -->
+<div id="leakPop" class="overlay" onclick="bgClose(event,'leakPop')">
+  <div class="popbox">
+    <div class="pophdr"><span>📉 Branch Leakage Analysis</span><button onclick="closePop('leakPop')">✕</button></div>
+    <div id="leakPopBody" class="pop-scroll"></div>
+  </div>
+</div>
+
+<!-- CELL EDIT POPUP -->
+<div id="cellPop" class="overlay" onclick="bgClose(event,'cellPop')">
+  <div class="popbox popsmall">
+    <div class="pophdr"><span id="cellPopTitle">Edit Sale</span><button onclick="closePop('cellPop')">✕</button></div>
+    <div style="padding:16px">
+      <div style="font-size:12px;color:var(--t2);margin-bottom:10px">Enter sales count (0 = no sale)</div>
+      <input id="cellVal" type="number" min="0" class="cellinput" onkeydown="if(event.key==='Enter')saveCell()"/>
+      <div class="pop-btns">
+        <button class="pbtn-p" onclick="saveCell()">✓ Save</button>
+        <button class="pbtn-s" onclick="closePop('cellPop')">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SEARCH POPUP -->
+<div id="searchPop" class="overlay" onclick="bgClose(event,'searchPop')">
+  <div class="popbox">
+    <div class="pophdr"><span id="searchPopTitle">Executive Detail</span><button onclick="closePop('searchPop')">✕</button></div>
+    <div id="searchPopBody" class="pop-scroll"></div>
+  </div>
+</div>
+
+<!-- EXCEL PREVIEW POPUP -->
+<div id="xlPop" class="overlay" onclick="bgClose(event,'xlPop')">
+  <div class="popbox popwide">
+    <div class="pophdr"><span>📊 Excel Data Preview</span><button onclick="closePop('xlPop')">✕</button></div>
+    <div id="xlPopBody" class="pop-scroll"></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
